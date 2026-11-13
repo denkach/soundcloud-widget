@@ -59,6 +59,29 @@ class BackendTests(unittest.TestCase):
             self.assertIn('soundcloud_widget_set_active(false)',run.call_args.args[0][-1])
             with self.assertRaises(ValueError):worker.handle({'cmd':'interaction','active':'true; do something else'})
 
+    def test_workspace_and_gradient_settings_migrate_and_persist(self):
+        migrated=backend.validate({'accent':'#c4d7bc'})
+        self.assertEqual(migrated['workspace'],0)
+        self.assertFalse(migrated['backgroundGradient'])
+        with tempfile.TemporaryDirectory() as directory, patch.object(backend,'CONFIG',Path(directory)/'settings.json'):
+            values=dict(workspace=3,monitor='DP-3',accentGradient=True,accentEnd='#ABCDEF',
+                        backgroundGradient=True,backgroundEnd='#102030',gradientDirection='vertical')
+            backend.save_settings(values)
+            saved=backend.load_settings()
+            self.assertEqual(saved['workspace'],3)
+            self.assertEqual(saved['monitor'],'DP-3')
+            self.assertEqual(saved['accentEnd'],'#abcdef')
+            self.assertTrue(saved['accentGradient'])
+            self.assertTrue(saved['backgroundGradient'])
+            self.assertEqual(saved['backgroundEnd'],'#102030')
+            self.assertEqual(saved['gradientDirection'],'vertical')
+        for workspace in (True,-1,10000,3.5,'3'):
+            self.assertEqual(backend.validate({'workspace':workspace})['workspace'],0)
+        bad=backend.validate({'accentEnd':'#bad','backgroundGradient':'yes','gradientDirection':'diagonal'})
+        self.assertEqual(bad['accentEnd'],backend.DEFAULTS['accentEnd'])
+        self.assertFalse(bad['backgroundGradient'])
+        self.assertEqual(bad['gradientDirection'],'horizontal')
+
     def test_default_window_opacities_are_read_from_hyprland(self):
         worker=backend.Backend.__new__(backend.Backend)
         worker.interacting=False
@@ -66,6 +89,17 @@ class BackendTests(unittest.TestCase):
         output='{"option":"decoration:active_opacity","float":0.95}\n{"option":"decoration:inactive_opacity","float":0.45}\n'
         with patch.object(backend,'command',return_value=output):worker.refresh_window_style()
         self.assertEqual(worker.window_style,{'activeOpacity':.95,'inactiveOpacity':.45})
+
+    def test_settings_command_focuses_only_the_saved_workspace(self):
+        worker=backend.Backend.__new__(backend.Backend)
+        worker.settings=backend.validate({'workspace':3})
+        with patch.object(backend,'command',return_value='ok') as run:
+            worker.handle({'cmd':'focus-workspace','workspace':'1; os.execute("nope")'})
+            self.assertEqual(run.call_args.args[0],['hyprctl','eval','hl.dispatch(hl.dsp.focus({workspace = 3}))'])
+            worker.settings=backend.validate({'workspace':0})
+            run.reset_mock()
+            worker.handle({'cmd':'focus-workspace'})
+            run.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

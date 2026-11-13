@@ -50,7 +50,7 @@ def install(home, autostart=False):
                              'Install without that flag and use the manual Lua integration in README.md.')
         updated = managed_config(old)
     target = home/'.local/share/soundcloud-widget'
-    for name in ('backend.py', 'shell.qml'):
+    for name in ('backend.py', 'shell.qml', 'SettingsPanel.qml', 'ColorPalette.qml'):
         atomic_write(target/'app'/name, (SOURCE/'app'/name).read_text())
     atomic_write(target/'hyprland.lua', (SOURCE/'config/hyprland.lua').read_text())
     atomic_write(home/'.local/bin/soundcloud-widget', (SOURCE/'soundcloud-widget').read_text(), 0o755)

@@ -23,6 +23,8 @@ class InstallTests(unittest.TestCase):
             self.assertIn(original.strip(),custom.read_text())
             self.assertEqual(custom.read_text().count(installer.BEGIN),1)
             self.assertTrue((target/'app/backend.py').is_file())
+            self.assertTrue((target/'app/SettingsPanel.qml').is_file())
+            self.assertTrue((target/'app/ColorPalette.qml').is_file())
             self.assertTrue((home/'.local/bin/soundcloud-widget').stat().st_mode & 0o100)
             again=custom.read_text()
             installer.install(home,True)

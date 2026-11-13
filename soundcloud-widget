@@ -29,7 +29,7 @@ if action=='start':
     os.execvp('qs',[*BASE,'--no-duplicate','--daemonize'])
 elif action=='stop':
     stop()
-elif action in ('toggle','settings','status'):
+elif action in ('toggle','settings','status','pin'):
     result=subprocess.run([*BASE,'ipc','call','player','state'],capture_output=True,text=True)
     if result.returncode:
         if action=='status':sys.exit('Виджет не запущен')
@@ -49,4 +49,4 @@ elif action=='disable':
     stop()
     print('Виджет остановлен; управляемый блок автозапуска удалён, если он существовал. При ручном подключении также удали dofile из конфигурации Hyprland.')
 else:
-    sys.exit('Использование: soundcloud-widget [start|stop|toggle|settings|status|disable]')
+    sys.exit('Использование: soundcloud-widget [start|stop|toggle|settings|status|pin|disable]')

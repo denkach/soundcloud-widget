@@ -20,7 +20,8 @@ A compact, customizable browser player for Hyprland — with a real audio wavefo
 
 - **Live waveform:** actual browser audio, with attack/decay smoothing and animated bars.
 - **Quiet when idle:** blur outside the card; a clear background on hover. Opacity follows your Hyprland theme.
-- **Your palette:** accent and background colors, HEX input, transparency, and Sage / Amber / Ice presets.
+- **Your palette:** a built-in HSV picker, HEX input, two-color gradients for the waveform and background, transparency, and Sage / Amber / Ice presets.
+- **Your workspace:** pin to one numbered workspace and monitor; the player disappears on other workspaces.
 - **Your corner:** four screen corners and an optional layer above windows.
 - **Useful controls:** playback, supported track navigation and seeking, plus browser-stream volume.
 - **Local by design:** no API key, account login, microphone capture, or audio uploads.
@@ -79,7 +80,11 @@ The Lua integration provides autostart and the widget's scoped blur rule. A full
 
 ## Make it yours
 
-Open the **gear** to adjust accent color, background color, background opacity, position, and whether the widget stays above windows. Click a color swatch for the color picker, or enter a HEX value. Settings save automatically.
+Open the **gear** to adjust accent color, background color, background opacity, position, and whether the widget stays above windows. Rounded controls share one consistent style. Click a color swatch for the built-in palette, or enter a HEX value. The palette offers hue, saturation, brightness, quick swatches, and an Apply button. Settings save automatically.
+
+Choose **Gradient** for the accent to blend the waveform between two colors, or for the background to blend the whole card. Both endpoints have independent color pickers. Background gradients can run horizontally or vertically. Other accent controls use the first color.
+
+The player initially pins itself to the current numbered workspace and monitor. Enter a workspace number in settings or press **На текущем столе** to pin it here. Switching workspaces hides the panel without stopping playback; returning shows it again. `soundcloud-widget pin` moves the binding to your current workspace. Opening settings from the CLI switches to the saved workspace. If the assigned monitor is disconnected, the panel stays hidden; run `pin` on an available monitor to recover it.
 
 | Preset | Mood |
 | --- | --- |
@@ -98,7 +103,8 @@ Use `~/.local/bin/soundcloud-widget` if `~/.local/bin` is not in your `PATH`.
 ```sh
 soundcloud-widget start      # launch without duplicates
 soundcloud-widget settings   # open settings
-soundcloud-widget toggle     # show / hide
+soundcloud-widget toggle     # show / hide on the assigned workspace
+soundcloud-widget pin        # pin to the current workspace and monitor
 soundcloud-widget status     # inspect current state
 soundcloud-widget stop       # stop this widget
 soundcloud-widget disable    # stop and remove its managed custom.lua block
@@ -154,7 +160,7 @@ The waveform does not capture the microphone or the combined system mix. The wid
 
 ```sh
 python3 -m unittest discover -s tests -v
-qmllint -I /usr/lib/qt6/qml app/shell.qml
+/usr/lib/qt6/bin/qmllint -I /usr/lib/qt6/qml app/*.qml
 ```
 
 The tests cover settings validation, audio stream selection, waveform processing, and safe, repeatable installation into a temporary home directory. They do not replace live compositor/browser testing.

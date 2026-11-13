@@ -18,7 +18,9 @@ gi.require_version('Gio', '2.0')
 from gi.repository import Gio, GLib
 
 DEFAULTS = dict(accent='#c4d7bc', background='#17201b', opacity=0.9,
-                position='bottom-right', onTop=True, player='auto')
+                position='bottom-right', onTop=True, player='auto', workspace=0, monitor='',
+                accentEnd='#8cbecb', backgroundEnd='#28384c', accentGradient=False,
+                backgroundGradient=False, gradientDirection='horizontal')
 CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home()/'.config'))) / 'soundcloud-widget/settings.json'
 POSITIONS = {'bottom-right', 'bottom-left', 'top-right', 'top-left'}
 BROWSER = re.compile(r'chrome|chromium|firefox|brave|vivaldi|zen|librewolf', re.I)
@@ -26,7 +28,7 @@ BROWSER = re.compile(r'chrome|chromium|firefox|brave|vivaldi|zen|librewolf', re.
 
 def validate(values):
     result = dict(DEFAULTS)
-    for key in ('accent', 'background'):
+    for key in ('accent', 'background', 'accentEnd', 'backgroundEnd'):
         if isinstance(values.get(key), str) and re.fullmatch(r'#[0-9a-fA-F]{6}', values[key]):
             result[key] = values[key].lower()
     value = values.get('opacity')
@@ -36,6 +38,16 @@ def validate(values):
         result['position'] = values['position']
     if isinstance(values.get('onTop'), bool):
         result['onTop'] = values['onTop']
+    for key in ('accentGradient', 'backgroundGradient'):
+        if isinstance(values.get(key), bool):
+            result[key] = values[key]
+    if values.get('gradientDirection') in ('horizontal', 'vertical'):
+        result['gradientDirection'] = values['gradientDirection']
+    workspace = values.get('workspace')
+    if type(workspace) is int and 0 <= workspace <= 9999:
+        result['workspace'] = workspace
+    if isinstance(values.get('monitor'), str) and len(values['monitor']) <= 128:
+        result['monitor'] = values['monitor']
     if isinstance(values.get('player'), str) and (values['player'] == 'auto' or re.fullmatch(r'org\.mpris\.MediaPlayer2\.[\w.\-]+', values['player'])):
         result['player'] = values['player']
     return result
@@ -253,7 +265,11 @@ class Backend:
 
     def handle(self, request):
         cmd = request.get('cmd')
-        if cmd == 'interaction':
+        if cmd == 'focus-workspace':
+            workspace = self.settings['workspace']
+            if workspace > 0:
+                command(['hyprctl', 'eval', 'hl.dispatch(hl.dsp.focus({workspace = '+str(workspace)+'}))'])
+        elif cmd == 'interaction':
             if not isinstance(request.get('active'), bool):
                 raise ValueError('Interaction state must be boolean')
             self.interacting = request['active']

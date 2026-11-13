@@ -1,16 +1,17 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 import QtQuick.Window
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Widgets
 
 ShellRoot {
     id: root
-    property var settings: ({accent: "#c4d7bc", background: "#17201b", opacity: 0.9, position: "bottom-right", onTop: true, player: "auto"})
+    property var settings: ({accent: "#c4d7bc", background: "#17201b", opacity: 0.9, position: "bottom-right", onTop: true, player: "auto", workspace: 0, monitor: "", accentEnd: "#8cbecb", backgroundEnd: "#28384c", accentGradient: false, backgroundGradient: false, gradientDirection: "horizontal"})
     property var media: ({})
     property var players: []
     property var bars: []
@@ -26,10 +27,22 @@ ShellRoot {
     property string lastSnapshot: "none"
     property bool captureOverlay: false
     property var windowStyle: ({activeOpacity:1.0,inactiveOpacity:0.6})
-    readonly property bool interacting: root.shown && (cardHover.hovered || (root.settingsOpen && card.Window.active) || accentPicker.visible || backgroundPicker.visible)
+    readonly property bool interacting: root.shown && root.workspaceVisible && (cardHover.hovered || (root.settingsOpen && card.Window.active))
     onInteractingChanged: interactionDebounce.restart()
     readonly property color accent: settings.accent
     readonly property color backgroundColor: settings.background
+    readonly property color accentEnd: settings.accentGradient ? settings.accentEnd : settings.accent
+    readonly property color backgroundEnd: settings.backgroundGradient ? settings.backgroundEnd : settings.background
+    readonly property var pinnedScreen: Quickshell.screens.find(s => s.name === root.settings.monitor) || null
+    readonly property var pinnedMonitor: Hyprland.monitors.values.find(m => m.name === root.settings.monitor) || null
+    readonly property bool workspaceVisible: !!root.pinnedMonitor && root.pinnedMonitor.activeWorkspace?.id === root.settings.workspace
+    function pinHere() {
+        if (Hyprland.focusedWorkspace?.id > 0 && Hyprland.focusedMonitor) {
+            root.setSetting("workspace", Hyprland.focusedWorkspace.id);
+            root.setSetting("monitor", Hyprland.focusedMonitor.name);
+        }
+    }
+    function withOpacity(c, alpha) { return Qt.rgba(c.r,c.g,c.b,alpha); }
     readonly property color foreground: backgroundColor.hslLightness > .6 ? "#18251c" : "#e1e8df"
     readonly property color muted: backgroundColor.hslLightness > .6 ? "#51634d" : "#a4b1a5"
     function send(value) { if (bridge.running) bridge.write(JSON.stringify(value) + "\n"); }
@@ -41,6 +54,7 @@ ShellRoot {
         if (!isFinite(seconds) || seconds < 0) return "--:--";
         return Math.floor(seconds / 60) + ":" + ("0" + Math.floor(seconds % 60)).slice(-2);
     }
+    Timer { interval: 200; repeat: true; running: root.appliedConfigAck >= 0 && (root.settings.workspace === 0 || !root.settings.monitor); onTriggered: root.pinHere() }
     Timer { id: saveDebounce; interval: 180; onTriggered: root.send({cmd:"settings", settings:root.settings, serial:root.settingsSerial}) }
     Timer { id: volumeThrottle; interval: 80; onTriggered: root.send({cmd:"volume",value:root.pendingVolume}) }
     Timer { id: interactionDebounce; interval: root.interacting ? 150 : 25; onTriggered: root.send({cmd:"interaction",active:root.interacting}) }
@@ -56,6 +70,7 @@ ShellRoot {
                     if (!saveDebounce.running && value.configAck >= root.settingsSerial && value.configAck !== root.appliedConfigAck) {
                         root.settings = value.settings;
                         root.appliedConfigAck = value.configAck;
+                        if (root.settings.workspace === 0 || !root.settings.monitor) root.pinHere();
                     }
                     root.media = value.media; root.players = value.players; root.bars = value.bars;
                     root.audioStatus = value.audioStatus; root.volume = value.volume;
@@ -72,8 +87,17 @@ ShellRoot {
     IpcHandler {
         target: "player"
         function toggle(): void { root.shown = !root.shown; }
-        function settings(): void { root.shown = true; root.settingsOpen = !root.settingsOpen; }
-        function state(): string { return JSON.stringify({settings:root.settings,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
+        function settings(): void {
+            root.send({cmd:"focus-workspace"});
+            root.shown = true; root.settingsOpen = !root.settingsOpen;
+        }
+        function pin(): void { root.pinHere(); }
+        function palette(key: string): void {
+            if (!["accent", "accentEnd", "background", "backgroundEnd"].includes(key)) return;
+            root.settingsOpen = true;
+            appearancePanel.chooseColor(key);
+        }
+        function state(): string { return JSON.stringify({nativeWorkspace:Hyprland.focusedWorkspace?.id,nativeMonitor:Hyprland.focusedMonitor?.name,nativeMonitors:Hyprland.monitors.values.map(m=>({name:m.name,workspace:m.activeWorkspace?.id})),settings:root.settings,workspaceVisible:root.workspaceVisible,visible:window.visible,screen:window.screen?.name,settingsOpen:root.settingsOpen,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
         function configure(value: string): void { const v=JSON.parse(value); for (const key in v) root.setSetting(key,v[key]); }
         function control(action: string): void { root.send({cmd:action}); }
         function snapshot(): void {
@@ -95,8 +119,6 @@ ShellRoot {
             if (!ok) { root.lastSnapshot = "grab failed"; root.captureOverlay = false; }
         }
     }
-    ColorDialog { id: accentPicker; title: "Цвет акцента"; selectedColor: root.accent; onAccepted: root.setSetting("accent",selectedColor.toString()) }
-    ColorDialog { id: backgroundPicker; title: "Цвет фона"; selectedColor: root.backgroundColor; onAccepted: root.setSetting("background",selectedColor.toString()) }
     component SmallButton: Button {
         id: b
         property color ink: root.muted
@@ -109,7 +131,8 @@ ShellRoot {
     component LabelText: Text { color: root.foreground; font.family: "Noto Sans"; font.pixelSize: 12; textFormat: Text.PlainText }
     PanelWindow {
         id: window
-        visible: root.shown
+        visible: root.shown && root.appliedConfigAck >= 0 && root.workspaceVisible
+        screen: root.pinnedScreen
         implicitWidth: 350
         implicitHeight: content.implicitHeight + 40
         color: "transparent"
@@ -117,7 +140,7 @@ ShellRoot {
         margins { right: 24; left: 24; top: 86; bottom: 103 }
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "soundcloud-widget"
-        WlrLayershell.layer: root.captureOverlay ? WlrLayer.Overlay : (root.settings.onTop ? WlrLayer.Top : WlrLayer.Bottom)
+        WlrLayershell.layer: root.captureOverlay || root.settingsOpen ? WlrLayer.Overlay : (root.settings.onTop ? WlrLayer.Top : WlrLayer.Bottom)
         WlrLayershell.keyboardFocus: root.settingsOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         Rectangle {
             id: card
@@ -127,7 +150,11 @@ ShellRoot {
             opacity: root.interacting ? root.windowStyle.activeOpacity : root.windowStyle.inactiveOpacity
             Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
             HoverHandler { id: cardHover }
-            color: Qt.rgba(root.backgroundColor.r,root.backgroundColor.g,root.backgroundColor.b,root.settings.opacity)
+            gradient: Gradient {
+                orientation: root.settings.gradientDirection === "vertical" ? Gradient.Vertical : Gradient.Horizontal
+                GradientStop { position: 0; color: root.withOpacity(root.backgroundColor, root.settings.opacity) }
+                GradientStop { position: 1; color: root.withOpacity(root.backgroundEnd, root.settings.opacity) }
+            }
             border.width: 1
             border.color: "#3b58604e"
             ColumnLayout {
@@ -160,10 +187,32 @@ ShellRoot {
                         spacing: 2
                         SmallButton { text: "⏮"; implicitWidth: 22; enabled: !!root.media.canPrevious; ToolTip.text: "Предыдущий"; onClicked: root.send({cmd:"previous"}) }
                         Button {
-                            implicitWidth: 34; implicitHeight: 34
+                            id: playButton
+                            implicitWidth: 36; implicitHeight: 36
+                            padding: 0
+                            Layout.alignment: Qt.AlignVCenter
                             enabled: root.media.playing ? !!root.media.canPause : !!root.media.canPlay
-                            background: Rectangle { radius: 17; color: parent.enabled ? root.accent : "#596658" }
-                            contentItem: Text { text: root.media.playing ? "Ⅱ" : "▶"; color: root.accent.hslLightness > .5 ? "#17251c" : "#eef3ec"; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            hoverEnabled: true
+                            background: Rectangle {
+                                radius: width / 2
+                                color: playButton.enabled ? root.accent : "#596658"
+                                scale: playButton.down ? .92 : (playButton.hovered ? 1.06 : 1)
+                                Behavior on scale { NumberAnimation { duration: 120 } }
+                            }
+                            contentItem: Item {
+                                Canvas {
+                                    anchors.centerIn: parent; width: 18; height: 18
+                                    property bool playing: !!root.media.playing
+                                    property color ink: root.accent.hslLightness > .5 ? "#17251c" : "#eef3ec"
+                                    onPlayingChanged: requestPaint()
+                                    onInkChanged: requestPaint()
+                                    onPaint: {
+                                        const ctx = getContext("2d"); ctx.reset(); ctx.fillStyle = ink;
+                                        if (playing) { ctx.fillRect(4,3,3,12); ctx.fillRect(11,3,3,12); }
+                                        else { ctx.beginPath(); ctx.moveTo(5,2); ctx.lineTo(16,9); ctx.lineTo(5,16); ctx.closePath(); ctx.fill(); }
+                                    }
+                                }
+                            }
                             onClicked: root.send({cmd:"toggle"})
                         }
                         SmallButton { text: "⏭"; implicitWidth: 22; enabled: !!root.media.canNext; ToolTip.text: "Следующий"; onClicked: root.send({cmd:"next"}) }
@@ -181,7 +230,12 @@ ShellRoot {
                                 width: Math.max(1,(parent.width-43*3)/44)
                                 height: Math.max(2,(root.bars[index] || 0)*32)
                                 y: (34-height)/2; radius: 2
-                                color: root.accent; opacity: .85
+                                gradient: Gradient {
+                                    orientation: Gradient.Vertical
+                                    GradientStop { position: 0; color: root.accent }
+                                    GradientStop { position: 1; color: root.accentEnd }
+                                }
+                                opacity: .85
                                 Behavior on height { NumberAnimation { duration: 115; easing.type: Easing.OutCubic } }
                             }
                         }
@@ -210,34 +264,12 @@ ShellRoot {
                     LabelText { text: root.audioStatus; font.pixelSize: 9; color: root.muted; Layout.fillWidth: true; elide: Text.ElideRight }
                     SmallButton { text: "↗"; implicitWidth: 22; implicitHeight: 22; ToolTip.text: "Открыть SoundCloud"; onClicked: root.send({cmd:"open"}) }
                 }
-                ColumnLayout {
-                    visible: root.settingsOpen; Layout.fillWidth: true; spacing: 10
-                    Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: "#20ffffff" }
-                    LabelText { text: "Оформление"; font.weight: Font.DemiBold }
-                    RowLayout {
-                        LabelText { text: "Акцент"; Layout.preferredWidth: 62 }
-                        Rectangle { width: 22; height: 22; radius: 5; color: root.accent; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: accentPicker.open() } }
-                        TextField { Layout.fillWidth: true; text: root.settings.accent; maximumLength: 7; placeholderText: "#c4d7bc"; onEditingFinished: if (/^#[0-9a-f]{6}$/i.test(text)) root.setSetting("accent",text.toLowerCase()); }
-                    }
-                    RowLayout {
-                        LabelText { text: "Фон"; Layout.preferredWidth: 62 }
-                        Rectangle { width: 22; height: 22; radius: 5; color: root.settings.background; border.color: "#526052"; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: backgroundPicker.open() } }
-                        TextField { Layout.fillWidth: true; text: root.settings.background; maximumLength: 7; onEditingFinished: if (/^#[0-9a-f]{6}$/i.test(text)) root.setSetting("background",text.toLowerCase()); }
-                    }
-                    RowLayout {
-                        LabelText { text: "Плотность фона"; Layout.fillWidth: true }
-                        LabelText { text: Math.round(root.settings.opacity*100)+"%"; color: root.muted }
-                    }
-                    Slider { Layout.fillWidth: true; from: .25; to: 1; value: root.settings.opacity; onMoved: root.setSetting("opacity",value) }
-                    RowLayout {
-                        Repeater {
-                            model: [{name:"Sage",a:"#c4d7bc",b:"#17201b"},{name:"Amber",a:"#f59a63",b:"#252019"},{name:"Ice",a:"#99c8e8",b:"#17222c"}]
-                            Button { required property var modelData; text: modelData.name; Layout.fillWidth: true; onClicked: {root.setSetting("accent",modelData.a);root.setSetting("background",modelData.b);} }
-                        }
-                    }
-                    ComboBox { Layout.fillWidth: true; model: ["Справа внизу","Справа вверху","Слева внизу","Слева вверху"]; currentIndex: ["bottom-right","top-right","bottom-left","top-left"].indexOf(root.settings.position); onActivated: root.setSetting("position",["bottom-right","top-right","bottom-left","top-left"][currentIndex]) }
-                    CheckBox { text: "Поверх окон"; checked: root.settings.onTop; onToggled: root.setSetting("onTop",checked) }
-                    LabelText { text: "Цвета и прозрачность сохраняются автоматически"; color: root.muted; font.pixelSize: 9 }
+                SettingsPanel {
+                    id: appearancePanel
+                    visible: root.settingsOpen
+                    Layout.fillWidth: true
+                    controller: root
+                    maxHeight: Math.max(260, (window.screen?.height || 1080) - 470)
                 }
             }
         }
