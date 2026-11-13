@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="500" viewBox="0 0 1100 500">
+<defs>
+ <radialGradient id="bg"><stop stop-color="#263f36"/><stop offset="1" stop-color="#0e1412"/></radialGradient>
+ <linearGradient id="art" x2="1" y2="1"><stop stop-color="#dfbc89"/><stop offset=".5" stop-color="#7da48d"/><stop offset="1" stop-color="#263f36"/></linearGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="18"/></filter>
+ <g id="card">
+  <rect width="350" height="219" rx="18" fill="#17201b" stroke="#64776a" stroke-opacity=".35"/>
+  <text x="18" y="30" fill="#c4d7bc" font-size="10" letter-spacing="1.4">☁  SOUNDCLOUD</text>
+  <text x="251" y="30" fill="#8c9e8f" font-size="9">● PLAYING</text>
+  <text x="320" y="31" fill="#a6b8a5" font-size="16">⚙</text>
+  <rect x="18" y="50" width="52" height="52" rx="11" fill="url(#art)"/>
+  <path d="M20 94L38 65 48 87 64 57 69 102H20Z" fill="#182d25" opacity=".65"/>
+  <text x="83" y="69" fill="#e3e9df" font-size="14" font-weight="600">The Late Shift</text>
+  <text x="83" y="89" fill="#a6b8a5" font-size="11">Demo Artist</text>
+  <text x="250" y="83" fill="#8c9e8f" font-size="16">‹</text>
+  <circle cx="285" cy="77" r="18" fill="#c4d7bc"/>
+  <path d="M281 70L292 77 281 84Z" fill="#17201b"/>
+  <text x="316" y="83" fill="#8c9e8f" font-size="16">›</text>
+  <g stroke="#c4d7bc" stroke-width="3" stroke-linecap="round">
+   <path d="M20 143v4m8-12v20m8-29v38m8-25v12m8-31v50m8-39v28m8-17v6m8-23v40m8-49v58m8-39v20m8-17v14m8-32v50m8-39v28m8-46v64m8-43v22m8-19v16m8-31v46m8-38v30m8-44v58m8-40v22m8-18v14m8-32v50m8-41v32m8-18v4m8-21v38m8-51v64m8-43v22m8-29v36m8-23v10m8-34v58m8-41v24m8-16v8m8-22v36m8-41v46m8-30v14m8-9v4m8-18v32m8-26v20m8-15v10"/>
+  </g>
+  <text x="18" y="190" fill="#a6b8a5" font-size="10">1:24</text><text x="309" y="190" fill="#a6b8a5" font-size="10">3:48</text>
+  <path d="M18 201H332" stroke="#425248"/><path d="M18 201H134" stroke="#c4d7bc" stroke-width="2"/>
+ </g>
+</defs>
+<rect width="1100" height="500" rx="24" fill="url(#bg)"/>
+<g font-family="Noto Sans, sans-serif">
+ <text x="70" y="65" fill="#c4d7bc" font-size="13" letter-spacing="4">SOUNDCLOUD WIDGET</text>
+ <text x="70" y="113" fill="#e3e9df" font-size="32" font-weight="600">A little space for your music.</text>
+ <g transform="translate(95 163)"><use href="#card"/></g>
+ <g transform="translate(655 163)">
+  <g filter="url(#blur)" opacity=".6"><circle cx="70" cy="100" r="85" fill="#859e71"/><circle cx="280" cy="130" r="80" fill="#718eb0"/></g>
+  <use href="#card" opacity=".6"/>
+ </g>
+ <text x="95" y="416" fill="#c4d7bc" font-size="12" letter-spacing="2">HOVER · CLEAR &amp; PRESENT</text>
+ <text x="655" y="416" fill="#a6b8a5" font-size="12" letter-spacing="2">IDLE · SOFT &amp; QUIET</text>
+ <text x="70" y="467" fill="#718278" font-size="11">Interface illustration · demo metadata</text>
+ <text x="836" y="467" fill="#718278" font-size="11">Hyprland / Quickshell</text>
+</g>
+</svg>

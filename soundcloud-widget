@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Launch or control only this widget, leaving ML4W's shell untouched."""
+import os
+import subprocess
+import sys
+import shutil
+import re
+import time
+from datetime import datetime
+from pathlib import Path
+
+APP=Path.home()/'.local/share/soundcloud-widget/app'
+BASE=['qs','--path',str(APP)]
+
+def stop():
+    listing=subprocess.run([*BASE,'list'],capture_output=True,text=True)
+    pids=[int(x) for x in re.findall(r'Process ID: (\d+)',listing.stdout)]
+    if not pids:
+        return
+    subprocess.run([*BASE,'kill'],check=True)
+    deadline=time.monotonic()+4
+    while any(Path('/proc',str(pid)).exists() for pid in pids):
+        if time.monotonic()>=deadline:
+            raise SystemExit('Виджет ещё завершается; повтори запуск через несколько секунд.')
+        time.sleep(.05)
+
+action=sys.argv[1] if len(sys.argv)>1 else 'start'
+if action=='start':
+    os.execvp('qs',[*BASE,'--no-duplicate','--daemonize'])
+elif action=='stop':
+    stop()
+elif action in ('toggle','settings','status'):
+    result=subprocess.run([*BASE,'ipc','call','player','state'],capture_output=True,text=True)
+    if result.returncode:
+        if action=='status':sys.exit('Виджет не запущен')
+        subprocess.run([*BASE,'--no-duplicate','--daemonize'],check=True)
+        if action=='toggle':sys.exit(0)
+    function='state' if action=='status' else action
+    os.execvp('qs',[*BASE,'ipc','call','player',function])
+elif action=='disable':
+    custom=(Path.home()/'.config/hypr/custom.lua').resolve()
+    text=custom.read_text() if custom.exists() else ''
+    start=text.find('-- BEGIN soundcloud-widget')
+    end=text.find('-- END soundcloud-widget',start)
+    if start>=0 and end>=start:
+        backup=Path.home()/'.local/state/soundcloud-widget/backups';backup.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(custom,backup/('custom.lua.disable-'+datetime.now().strftime('%Y%m%d-%H%M%S')))
+        custom.write_text(text[:start]+text[end+len('-- END soundcloud-widget'):])
+    stop()
+    print('Виджет остановлен; управляемый блок автозапуска удалён, если он существовал. При ручном подключении также удали dofile из конфигурации Hyprland.')
+else:
+    sys.exit('Использование: soundcloud-widget [start|stop|toggle|settings|status|disable]')

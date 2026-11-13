@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.superpowers/
+docs/superpowers/
+.env
+.env.*
+/settings.json
+/verification.json
+*.log
+.DS_Store
