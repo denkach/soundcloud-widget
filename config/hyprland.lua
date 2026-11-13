@@ -6,14 +6,17 @@ end)
 
 soundcloud_widget_blur_rule = hl.layer_rule({
     name = "soundcloud-widget-idle-blur",
-    match = { namespace = "^soundcloud-widget$" },
+    match = { namespace = "^soundcloud-widget-blur$" },
     blur = true,
     ignore_alpha = 0.001,
 })
 
-function soundcloud_widget_set_active(active)
-    local enabled = not active
-    if soundcloud_widget_blur_rule:is_enabled() ~= enabled then
-        soundcloud_widget_blur_rule:set_enabled(enabled)
-    end
-end
+-- Foreground stays sharp; only the separate backdrop has native blur.
+soundcloud_widget_foreground_rule = hl.layer_rule({
+    name = "soundcloud-widget-sharp-foreground",
+    match = { namespace = "^soundcloud-widget$" },
+    blur = false,
+})
+
+-- Clear the legacy on/off hover hook after upgrading the configuration.
+soundcloud_widget_set_active = nil

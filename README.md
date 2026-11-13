@@ -92,9 +92,9 @@ The player initially pins itself to the current numbered workspace and monitor. 
 | Amber | Warm highlights and a dark background |
 | Ice | Cool blue accents |
 
-The card follows Hyprland's `active_opacity` and `inactive_opacity`. Hovering or interacting with settings activates it; idle state applies the inactive opacity. These multiply your chosen background opacity. Blur inherits your compositor's settings and is toggled through a rule scoped to `soundcloud-widget`.
+The card follows Hyprland's `active_opacity` and `inactive_opacity`. Hovering or interacting with settings activates it; idle state applies the inactive opacity. These multiply your chosen background opacity. Blur inherits your compositor's settings through a rule scoped to the `soundcloud-widget-blur` backdrop; the foreground stays sharp.
 
-Hover changes bypass audio polling: opacity updates as soon as Hyprland acknowledges the blur change, without a separate debounce or fade animation. Rapid enter/leave events are serialized so an older request cannot leave the card in the wrong state.
+Hover uses one **280 ms, eased animation** for both foreground opacity and blur. A click-through backdrop uses `HyprlandWindow.opacity`, which fades the compositor blur itself, while the foreground stays sharp. Both values follow the same progress; reversing hover midway continues from the current value without snapping. Hover never waits for audio polling or a subprocess.
 
 Preferences live in `~/.config/soundcloud-widget/settings.json` (the backend also honors `XDG_CONFIG_HOME`). Installed files live in `~/.local/share/soundcloud-widget`; configuration backups live in `~/.local/state/soundcloud-widget/backups`.
 
@@ -120,6 +120,7 @@ If you integrated manually, also remove the `dofile(...)` line to disable future
 git pull --ff-only
 soundcloud-widget stop
 python3 install.py --autostart
+hyprctl reload config-only
 soundcloud-widget start
 ```
 
