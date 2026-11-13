@@ -28,7 +28,16 @@ ShellRoot {
     property bool captureOverlay: false
     property var windowStyle: ({activeOpacity:1.0,inactiveOpacity:0.6})
     readonly property bool interacting: root.shown && root.workspaceVisible && (cardHover.hovered || (root.settingsOpen && card.Window.active))
-    onInteractingChanged: interactionDebounce.restart()
+    // The compositor and the card share one acknowledged focus state.
+    property bool appliedInteraction: false
+    property string focusError: ""
+    onInteractingChanged: syncFocus()
+    function syncFocus() {
+        if (focusBridge.running) return; // Coalesce rapid enter/leave events.
+        focusBridge.activeRequest = root.interacting;
+        focusBridge.running = true;
+    }
+    Component.onCompleted: syncFocus()
     readonly property color accent: settings.accent
     readonly property color backgroundColor: settings.background
     readonly property color accentEnd: settings.accentGradient ? settings.accentEnd : settings.accent
@@ -57,7 +66,22 @@ ShellRoot {
     Timer { interval: 200; repeat: true; running: root.appliedConfigAck >= 0 && (root.settings.workspace === 0 || !root.settings.monitor); onTriggered: root.pinHere() }
     Timer { id: saveDebounce; interval: 180; onTriggered: root.send({cmd:"settings", settings:root.settings, serial:root.settingsSerial}) }
     Timer { id: volumeThrottle; interval: 80; onTriggered: root.send({cmd:"volume",value:root.pendingVolume}) }
-    Timer { id: interactionDebounce; interval: root.interacting ? 150 : 25; onTriggered: root.send({cmd:"interaction",active:root.interacting}) }
+    // Keep hover independent of MPRIS / audio polling. One request at a time,
+    // then commit opacity immediately after Hyprland acknowledges its blur rule.
+    Process {
+        id: focusBridge
+        property bool activeRequest: false
+        command: ["hyprctl", "eval", "if soundcloud_widget_set_active then soundcloud_widget_set_active(" + (activeRequest ? "true" : "false") + ") else error('Widget blur integration is not loaded') end"]
+        stdout: StdioCollector { id: focusReply }
+        onExited: (code, status) => {
+            const applied = code === 0 && focusReply.text.trim() === "ok";
+            root.focusError = applied ? "" : "Hyprland focus update failed: " + focusReply.text.trim().slice(0,160);
+            if (applied) root.appliedInteraction = activeRequest;
+            if (root.interacting !== activeRequest) Qt.callLater(root.syncFocus);
+        }
+    }
+    // Restore the scoped rule after configuration reloads, using the same path.
+    Timer { interval: 3000; repeat: true; running: true; onTriggered: root.syncFocus() }
     Process {
         id: bridge
         command: ["python3", "-u", decodeURIComponent(Qt.resolvedUrl("backend.py").toString().slice(7))]
@@ -81,7 +105,7 @@ ShellRoot {
         }
         stderr: SplitParser { onRead: data => console.warn("SoundCloud backend:", data) }
         onExited: (code, status) => { root.audioStatus = "Переподключение…"; retry.restart(); }
-        onStarted: { root.appliedConfigAck = -1; interactionDebounce.restart(); if (root.settingsSerial > 0) root.send({cmd:"settings",settings:root.settings,serial:root.settingsSerial}); }
+        onStarted: { root.appliedConfigAck = -1; if (root.settingsSerial > 0) root.send({cmd:"settings",settings:root.settings,serial:root.settingsSerial}); }
     }
     Timer { id: retry; interval: 2500; onTriggered: bridge.running = true }
     IpcHandler {
@@ -97,7 +121,7 @@ ShellRoot {
             root.settingsOpen = true;
             appearancePanel.chooseColor(key);
         }
-        function state(): string { return JSON.stringify({nativeWorkspace:Hyprland.focusedWorkspace?.id,nativeMonitor:Hyprland.focusedMonitor?.name,nativeMonitors:Hyprland.monitors.values.map(m=>({name:m.name,workspace:m.activeWorkspace?.id})),settings:root.settings,workspaceVisible:root.workspaceVisible,visible:window.visible,screen:window.screen?.name,settingsOpen:root.settingsOpen,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
+        function state(): string { return JSON.stringify({nativeWorkspace:Hyprland.focusedWorkspace?.id,nativeMonitor:Hyprland.focusedMonitor?.name,nativeMonitors:Hyprland.monitors.values.map(m=>({name:m.name,workspace:m.activeWorkspace?.id})),settings:root.settings,workspaceVisible:root.workspaceVisible,visible:window.visible,screen:window.screen?.name,settingsOpen:root.settingsOpen,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,appliedInteraction:root.appliedInteraction,focusPending:focusBridge.running,focusError:root.focusError,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
         function configure(value: string): void { const v=JSON.parse(value); for (const key in v) root.setSetting(key,v[key]); }
         function control(action: string): void { root.send({cmd:action}); }
         function snapshot(): void {
@@ -147,8 +171,7 @@ ShellRoot {
             anchors.fill: parent
             anchors.margins: 4
             radius: 17
-            opacity: root.interacting ? root.windowStyle.activeOpacity : root.windowStyle.inactiveOpacity
-            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+            opacity: root.appliedInteraction ? root.windowStyle.activeOpacity : root.windowStyle.inactiveOpacity
             HoverHandler { id: cardHover }
             gradient: Gradient {
                 orientation: root.settings.gradientDirection === "vertical" ? Gradient.Vertical : Gradient.Horizontal

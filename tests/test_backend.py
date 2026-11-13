@@ -47,18 +47,6 @@ class BackendTests(unittest.TestCase):
             self.assertEqual(invalid['opacity'],.9)
             self.assertEqual(invalid['position'],'bottom-right')
 
-    def test_focus_only_toggles_the_widgets_named_blur_rule(self):
-        worker=backend.Backend.__new__(backend.Backend)
-        worker.interacting=False
-        with patch.object(backend,'command',return_value='ok') as run:
-            worker.handle({'cmd':'interaction','active':True})
-            self.assertTrue(worker.interacting)
-            self.assertEqual(run.call_args.args[0],['hyprctl','eval','if soundcloud_widget_set_active then soundcloud_widget_set_active(true) end'])
-            worker.handle({'cmd':'interaction','active':False})
-            self.assertFalse(worker.interacting)
-            self.assertIn('soundcloud_widget_set_active(false)',run.call_args.args[0][-1])
-            with self.assertRaises(ValueError):worker.handle({'cmd':'interaction','active':'true; do something else'})
-
     def test_workspace_and_gradient_settings_migrate_and_persist(self):
         migrated=backend.validate({'accent':'#c4d7bc'})
         self.assertEqual(migrated['workspace'],0)
@@ -84,10 +72,13 @@ class BackendTests(unittest.TestCase):
 
     def test_default_window_opacities_are_read_from_hyprland(self):
         worker=backend.Backend.__new__(backend.Backend)
-        worker.interacting=False
         worker.window_style=dict(activeOpacity=1.,inactiveOpacity=.6)
         output='{"option":"decoration:active_opacity","float":0.95}\n{"option":"decoration:inactive_opacity","float":0.45}\n'
-        with patch.object(backend,'command',return_value=output):worker.refresh_window_style()
+        with patch.object(backend,'command',return_value=output) as run:
+            worker.refresh_window_style()
+            # Theme refresh must never race the dedicated UI focus controller.
+            run.assert_called_once_with(['hyprctl','--batch','-j',
+                'getoption decoration:active_opacity; getoption decoration:inactive_opacity'])
         self.assertEqual(worker.window_style,{'activeOpacity':.95,'inactiveOpacity':.45})
 
     def test_settings_command_focuses_only_the_saved_workspace(self):

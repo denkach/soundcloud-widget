@@ -146,13 +146,8 @@ class Backend:
         self.selector.register(sys.stdin, selectors.EVENT_READ, 'input')
         self.last_audio = time.monotonic()
         self.error = ''
-        self.interacting = False
         self.window_style = dict(activeOpacity=1., inactiveOpacity=.6)
         self.next_style_refresh = 0
-
-    def apply_focus_blur(self):
-        active = 'true' if self.interacting else 'false'
-        command(['hyprctl', 'eval', 'if soundcloud_widget_set_active then soundcloud_widget_set_active('+active+') end'])
 
     def refresh_window_style(self):
         try:
@@ -165,8 +160,6 @@ class Backend:
                 value = values.get(option)
                 if isinstance(value,(int,float)) and math.isfinite(value):
                     self.window_style[key] = max(0.,min(1.,value))
-            # Reconcile our named rule after a Hyprland theme/config reload.
-            self.apply_focus_blur()
         except (OSError,ValueError,RuntimeError,subprocess.TimeoutExpired):
             pass
 
@@ -269,11 +262,6 @@ class Backend:
             workspace = self.settings['workspace']
             if workspace > 0:
                 command(['hyprctl', 'eval', 'hl.dispatch(hl.dsp.focus({workspace = '+str(workspace)+'}))'])
-        elif cmd == 'interaction':
-            if not isinstance(request.get('active'), bool):
-                raise ValueError('Interaction state must be boolean')
-            self.interacting = request['active']
-            self.apply_focus_blur()
         elif cmd == 'settings':
             self.settings = validate(request.get('settings', {}))
             save_settings(self.settings)
@@ -340,8 +328,7 @@ class Backend:
                             volume = round(sum(v.get('value',0) for v in channels)/len(channels)/65536*100)
                     print(json.dumps(dict(settings=self.settings, configAck=self.ack, media=self.media, players=self.players,
                         bars=self.bars, audioStatus=self.audio_status, volume=volume,
-                        hasStream=bool(self.stream), error=self.error, windowStyle=self.window_style,
-                        interacting=self.interacting), ensure_ascii=False), flush=True)
+                        hasStream=bool(self.stream), error=self.error, windowStyle=self.window_style), ensure_ascii=False), flush=True)
                     next_frame = now + .04
         finally:
             self.stop_capture()

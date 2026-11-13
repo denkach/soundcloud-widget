@@ -94,6 +94,8 @@ The player initially pins itself to the current numbered workspace and monitor. 
 
 The card follows Hyprland's `active_opacity` and `inactive_opacity`. Hovering or interacting with settings activates it; idle state applies the inactive opacity. These multiply your chosen background opacity. Blur inherits your compositor's settings and is toggled through a rule scoped to `soundcloud-widget`.
 
+Hover changes bypass audio polling: opacity updates as soon as Hyprland acknowledges the blur change, without a separate debounce or fade animation. Rapid enter/leave events are serialized so an older request cannot leave the card in the wrong state.
+
 Preferences live in `~/.config/soundcloud-widget/settings.json` (the backend also honors `XDG_CONFIG_HOME`). Installed files live in `~/.local/share/soundcloud-widget`; configuration backups live in `~/.local/state/soundcloud-widget/backups`.
 
 ## Commands
