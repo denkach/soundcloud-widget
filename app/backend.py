@@ -269,8 +269,6 @@ class Backend:
         elif cmd == 'volume' and self.stream:
             percent = max(0, min(100, int(request.get('value', 0))))
             command(['pactl', 'set-sink-input-volume', str(self.stream['index']), str(percent)+'%'])
-        elif cmd == 'open':
-            subprocess.Popen(['xdg-open', 'https://soundcloud.com/you/library'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         elif self.media:
             method = {'toggle':'PlayPause', 'next':'Next', 'previous':'Previous'}.get(cmd)
             allowed = {'toggle':self.media['canPause'] if self.media['playing'] else self.media['canPlay'],

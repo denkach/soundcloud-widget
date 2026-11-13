@@ -24,6 +24,7 @@ A compact, customizable browser player for Hyprland — with a real audio wavefo
 - **Your workspace:** pin to one numbered workspace and monitor; the player disappears on other workspaces.
 - **Your corner:** four screen corners and an optional layer above windows.
 - **Useful controls:** playback, supported track navigation and seeking, plus browser-stream volume.
+- **Open and reveal:** the SoundCloud shortcut opens your default browser and focuses its SoundCloud window, including on another workspace. It works even when Hyprland's global `focus_on_activate` is disabled.
 - **Local by design:** no API key, account login, microphone capture, or audio uploads.
 
 Built for SoundCloud in your browser. Other browser media sessions can also appear when the browser does not expose the website identity; see [browser behavior](#browser-behavior).

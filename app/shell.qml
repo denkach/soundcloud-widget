@@ -24,6 +24,12 @@ ShellRoot {
     property int appliedConfigAck: -1
     property real pendingVolume: 65
     property string backendError: ""
+    property string openError: ""
+    function openSoundCloud() {
+        if (browserOpener.running) return;
+        root.openError = "";
+        browserOpener.running = true;
+    }
     property string lastSnapshot: "none"
     property bool captureOverlay: false
     property var windowStyle: ({activeOpacity:1.0,inactiveOpacity:0.6})
@@ -61,6 +67,15 @@ ShellRoot {
     Timer { interval: 200; repeat: true; running: root.appliedConfigAck >= 0 && (root.settings.workspace === 0 || !root.settings.monitor); onTriggered: root.pinHere() }
     Timer { id: saveDebounce; interval: 180; onTriggered: root.send({cmd:"settings", settings:root.settings, serial:root.settingsSerial}) }
     Timer { id: volumeThrottle; interval: 80; onTriggered: root.send({cmd:"volume",value:root.pendingVolume}) }
+    // URL launching and window activation must not wait for audio / MPRIS polling.
+    Process {
+        id: browserOpener
+        command: ["python3", decodeURIComponent(Qt.resolvedUrl("open_soundcloud.py").toString().slice(7))]
+        stderr: StdioCollector { id: browserOpenErrors }
+        onExited: (code, status) => {
+            if (code !== 0) root.openError = browserOpenErrors.text.trim() || "Не удалось открыть SoundCloud";
+        }
+    }
     Process {
         id: bridge
         command: ["python3", "-u", decodeURIComponent(Qt.resolvedUrl("backend.py").toString().slice(7))]
@@ -100,9 +115,9 @@ ShellRoot {
             root.settingsOpen = true;
             appearancePanel.chooseColor(key);
         }
-        function state(): string { return JSON.stringify({nativeWorkspace:Hyprland.focusedWorkspace?.id,nativeMonitor:Hyprland.focusedMonitor?.name,nativeMonitors:Hyprland.monitors.values.map(m=>({name:m.name,workspace:m.activeWorkspace?.id})),settings:root.settings,workspaceVisible:root.workspaceVisible,visible:window.visible,screen:window.screen?.name,settingsOpen:root.settingsOpen,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,focusProgress:root.focusProgress,blurOpacity:blurWindow.HyprlandWindow.opacity,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
+        function state(): string { return JSON.stringify({nativeWorkspace:Hyprland.focusedWorkspace?.id,nativeMonitor:Hyprland.focusedMonitor?.name,nativeMonitors:Hyprland.monitors.values.map(m=>({name:m.name,workspace:m.activeWorkspace?.id})),settings:root.settings,workspaceVisible:root.workspaceVisible,visible:window.visible,screen:window.screen?.name,settingsOpen:root.settingsOpen,openingSoundCloud:browserOpener.running,openError:root.openError,media:root.media,audioStatus:root.audioStatus,maxWave:Math.max(0,...root.bars),hasStream:root.hasStream,error:root.backendError,hovered:cardHover.hovered,interacting:root.interacting,focusProgress:root.focusProgress,blurOpacity:blurWindow.HyprlandWindow.opacity,effectiveOpacity:card.opacity,windowStyle:root.windowStyle,barHeights:[waveRepeater.itemAt(0)?.height,waveRepeater.itemAt(10)?.height,waveRepeater.itemAt(20)?.height],barTargets:[root.bars[0],root.bars[10],root.bars[20]],snapshot:root.lastSnapshot}); }
         function configure(value: string): void { const v=JSON.parse(value); for (const key in v) root.setSetting(key,v[key]); }
-        function control(action: string): void { root.send({cmd:action}); }
+        function control(action: string): void { if (action === "open") root.openSoundCloud(); else root.send({cmd:action}); }
         function snapshot(): void {
             root.captureOverlay = true;
             root.lastSnapshot = "requested";
@@ -289,8 +304,8 @@ ShellRoot {
                         background: Rectangle { x: 0; y: volumeSlider.height/2-1; width: volumeSlider.width; height: 2; radius: 1; color: Qt.rgba(root.accent.r,root.accent.g,root.accent.b,.2); Rectangle { width: volumeSlider.visualPosition*parent.width; height: 2; radius: 1; color: root.accent } }
                         handle: Rectangle { x: volumeSlider.visualPosition*(volumeSlider.width-width); y: volumeSlider.height/2-4; width: 8; height: 8; radius: 4; color: root.accent; opacity: volumeSlider.enabled ? 1 : .3 }
                     }
-                    LabelText { text: root.audioStatus; font.pixelSize: 9; color: root.muted; Layout.fillWidth: true; elide: Text.ElideRight }
-                    SmallButton { text: "↗"; implicitWidth: 22; implicitHeight: 22; ToolTip.text: "Открыть SoundCloud"; onClicked: root.send({cmd:"open"}) }
+                    LabelText { text: root.openError || root.audioStatus; font.pixelSize: 9; color: root.muted; Layout.fillWidth: true; elide: Text.ElideRight }
+                    SmallButton { text: browserOpener.running ? "…" : "↗"; enabled: !browserOpener.running; implicitWidth: 22; implicitHeight: 22; ToolTip.text: root.openError || "Открыть SoundCloud"; onClicked: root.openSoundCloud() }
                 }
                 SettingsPanel {
                     id: appearancePanel
