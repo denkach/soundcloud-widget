@@ -81,11 +81,25 @@ The Lua integration provides autostart and the widget's scoped blur rule. A full
 
 ## Make it yours
 
-Open the **gear** to adjust accent color, background color, background opacity, position, and whether the widget stays above windows. Rounded controls share one consistent style. Click a color swatch for the built-in palette, or enter a HEX value. The palette offers hue, saturation, brightness, quick swatches, and an Apply button. Settings save automatically.
+Click the **gear** in the player, or run:
 
-Choose **Gradient** for the accent to blend the waveform between two colors, or for the background to blend the whole card. Both endpoints have independent color pickers. Background gradients can run horizontally or vertically. Other accent controls use the first color.
+```sh
+soundcloud-widget settings
+```
 
-The player initially pins itself to the current numbered workspace and monitor. Enter a workspace number in settings or press **На текущем столе** to pin it here. Switching workspaces hides the panel without stopping playback; returning shows it again. `soundcloud-widget pin` moves the binding to your current workspace. Opening settings from the CLI switches to the saved workspace. If the assigned monitor is disconnected, the panel stays hidden; run `pin` on an available monitor to recover it.
+<table>
+<tr><th>Appearance settings</th><th>Color palette</th></tr>
+<tr>
+<td valign="top"><img src="assets/settings.png" width="340" alt="Settings panel showing two-color gradients, opacity, presets, position, and workspace controls"></td>
+<td valign="top"><img src="assets/color-palette.png" width="310" alt="Built-in color picker with a saturation and brightness square, hue slider, quick swatches, and Apply button"></td>
+</tr>
+</table>
+
+<sub>Actual settings components rendered with demonstration preferences. The interface currently uses Russian labels; screenshots contain no playback or account data.</sub>
+
+### 1. Start with a preset
+
+Select **Sage**, **Amber**, or **Ice** under **ГОТОВЫЕ ПАЛИТРЫ**. This sets the accent and background colors and switches both back to solid-color mode. Enable gradients afterward if you want them.
 
 | Preset | Mood |
 | --- | --- |
@@ -93,9 +107,50 @@ The player initially pins itself to the current numbered workspace and monitor. 
 | Amber | Warm highlights and a dark background |
 | Ice | Cool blue accents |
 
-The card follows Hyprland's `active_opacity` and `inactive_opacity`. Hovering or interacting with settings activates it; idle state applies the inactive opacity. These multiply your chosen background opacity. Blur inherits your compositor's settings through a rule scoped to the `soundcloud-widget-blur` backdrop; the foreground stays sharp.
+### 2. Pick your colors
 
-Hover uses one **280 ms, eased animation** for both foreground opacity and blur. A click-through backdrop uses `HyprlandWindow.opacity`, which fades the compositor blur itself, while the foreground stays sharp. Both values follow the same progress; reversing hover midway continues from the current value without snapping. Hover never waits for audio polling or a subprocess.
+Use **АКЦЕНТ** for waveform and control colors, and **ФОН** for the card background.
+
+- Select **Цвет** for a solid color. Click its colored square to open the palette.
+- Drag the rainbow slider to choose a hue; use the large square to adjust saturation and brightness. The small swatches provide quick choices.
+- Click **Применить** to apply your selection or **Отмена** to discard it.
+- For an exact color, enter `#RRGGBB` in the field beside the swatch and press Enter or leave the field.
+
+### 3. Build a gradient
+
+Select **Градиент** in the accent or background section. Choose colors for **Старт** and **Финиш** using their swatches or HEX fields.
+
+The accent gradient colors the waveform; other controls use its first color. The background gradient covers the whole card. Use **→ Вправо** for a horizontal background blend or **↓ Вниз** for a vertical one.
+
+To recreate the screenshots:
+
+| Setting | Value |
+| --- | --- |
+| Accent gradient | `#C4D7BC` → `#8CBECB` |
+| Background gradient | `#17201B` → `#28384C` |
+| Background direction | **→ Вправо** / horizontal |
+| Background density | **85%** |
+| Position | **Справа внизу** / bottom-right |
+
+### 4. Adjust transparency and placement
+
+| Control | What it changes |
+| --- | --- |
+| **Плотность фона** | Background density, from 25% to 100%. Lower values make the background more transparent. |
+| **РАСПОЛОЖЕНИЕ** | Choose one of four screen corners with the arrow buttons. |
+| **Поверх окон** | Keep the player above regular windows when enabled, or below them when disabled. |
+| **РАБОЧИЙ СТОЛ** | Enter the workspace number where the player should appear. |
+| **На текущем столе** | Pin the player to your current numbered workspace and monitor. |
+
+While settings are open, the panel temporarily stays above other windows. Close them with the gear to see your chosen stacking behavior. Settings save automatically; no Apply button is needed outside the color picker.
+
+### Focus, blur, and saved preferences
+
+The card also follows Hyprland's `active_opacity` and `inactive_opacity`. These multiply your chosen background density, so an idle card can look more transparent than the slider value suggests. Hover uses one **280 ms, eased animation** for foreground opacity and compositor blur. The foreground stays sharp; reversing hover midway continues smoothly from the current value.
+
+Blur inherits your compositor's settings through the `soundcloud-widget-blur` backdrop. Its size and passes are controlled by your Hyprland theme rather than the color picker.
+
+The player initially pins itself to the current numbered workspace and monitor. Switching workspaces hides it without stopping playback; returning shows it again. Opening settings from the CLI switches to the saved workspace. If the assigned monitor is disconnected, run `soundcloud-widget pin` on an available monitor to recover the player.
 
 Preferences live in `~/.config/soundcloud-widget/settings.json` (the backend also honors `XDG_CONFIG_HOME`). Installed files live in `~/.local/share/soundcloud-widget`; configuration backups live in `~/.local/state/soundcloud-widget/backups`.
 
